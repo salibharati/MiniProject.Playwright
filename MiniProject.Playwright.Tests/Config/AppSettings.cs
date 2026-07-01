@@ -1,100 +1,35 @@
-namespace MiniProject.Playwright.Tests.Config
+namespace MiniProject.Playwright.Tests.Config;
+
+public class AppSettings
 {
-    /// <summary>
-    /// Root configuration class mapped from appsettings.json
-    /// </summary>
-    public class AppSettings
-    {
-        public BrowserSettings BrowserSettings { get; set; } = new();
+    public BrowserSettings BrowserSettings { get; set; } = new();
 
-        public TestSettings TestSettings { get; set; } = new();
+    public TestSettings TestSettings { get; set; } = new();
 
-        public EnvironmentSettings EnvironmentSettings { get; set; } = new();
+    public UrlSettings Urls { get; set; } = new();
+}
 
-        public ReportSettings ReportSettings { get; set; } = new();
-    }
+public class BrowserSettings
+{
+    public string BrowserName { get; set; } = "chromium";
 
-    /// <summary>
-    /// Browser Configuration
-    /// </summary>
-    public class BrowserSettings
-    {
-        /// <summary>
-        /// chromium / firefox / webkit
-        /// </summary>
-        public string BrowserName { get; set; } = "chromium";
+    public bool Headless { get; set; } = true;
 
-        /// <summary>
-        /// true = Headless
-        /// false = Browser visible
-        /// </summary>
-        public bool Headless { get; set; } = false;
+    public int SlowMo { get; set; } = 0;
+}
 
-        /// <summary>
-        /// SlowMo in milliseconds
-        /// </summary>
-        public int SlowMo { get; set; } = 0;
+public class TestSettings
+{
+    public bool ScreenshotOnFailure { get; set; } = true;
 
-        /// <summary>
-        /// Browser timeout in milliseconds
-        /// </summary>
-        public int Timeout { get; set; } = 30000;
-    }
+    public bool VideoOnFailure { get; set; } = true;
 
-    /// <summary>
-    /// Test execution settings
-    /// </summary>
-    public class TestSettings
-    {
-        /// <summary>
-        /// Base URL of AUT
-        /// </summary>
-        public string BaseUrl { get; set; } = string.Empty;
+    public bool TraceOnFirstRetry { get; set; } = true;
+}
 
-        /// <summary>
-        /// Capture Screenshot on Failure
-        /// </summary>
-        public bool ScreenshotOnFailure { get; set; } = true;
+public class UrlSettings
+{
+    public string PlaywrightDevUrl { get; set; } = "";
 
-        /// <summary>
-        /// Record Video
-        /// </summary>
-        public bool VideoOnFailure { get; set; } = true;
-
-        /// <summary>
-        /// Save Playwright Trace
-        /// </summary>
-        public bool TraceOnFirstRetry { get; set; } = true;
-
-        /// <summary>
-        /// Maximum Retry Count
-        /// </summary>
-        public int RetryCount { get; set; } = 0;
-    }
-
-    /// <summary>
-    /// Environment Configuration
-    /// </summary>
-    public class EnvironmentSettings
-    {
-        public string EnvironmentName { get; set; } = "QA";
-
-        public string ApplicationName { get; set; } = "MiniProject";
-
-        public string Version { get; set; } = "1.0";
-    }
-
-    /// <summary>
-    /// Reporting Configuration
-    /// </summary>
-    public class ReportSettings
-    {
-        public string ReportName { get; set; } = "Playwright Automation Report";
-
-        public string ReportTitle { get; set; } = "Execution Report";
-
-        public string Theme { get; set; } = "Dark";
-
-        public bool CaptureSystemInfo { get; set; } = true;
-    }
+    public string TodoMvcUrl { get; set; } = "";
 }

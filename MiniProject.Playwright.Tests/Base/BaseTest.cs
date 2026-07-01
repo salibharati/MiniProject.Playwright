@@ -183,7 +183,7 @@ namespace MiniProject.Playwright.Tests.Base
 
                     extentTest.Info("Screenshot captured.");
                     Logger.Error($"Test Failed : {testName}");
-                    Logger.Error(errorMessage);
+                    //Logger.Error(errorMessage);
                     if (!string.IsNullOrWhiteSpace(screenshotPath))
                     {
                         extentTest.AddScreenCaptureFromPath(
@@ -421,3 +421,4 @@ namespace MiniProject.Playwright.Tests.Base
 
         #endregion
     }
+}

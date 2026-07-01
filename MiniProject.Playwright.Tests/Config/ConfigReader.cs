@@ -1,100 +1,67 @@
 ﻿using System.Text.Json;
 
-namespace MiniProject.Playwright.Tests.Config
+namespace MiniProject.Playwright.Tests.Config;
+
+public static class ConfigReader
 {
-    /// <summary>
-    /// Reads application configuration from appsettings.json.
-    /// </summary>
-    public static class ConfigReader
+    private static readonly Lazy<AppSettings> _settings =
+        new(LoadConfiguration);
+
+    public static AppSettings Load()
     {
-        private static readonly Lazy<AppSettings> _settings =
-            new(LoadConfiguration);
+        return _settings.Value;
+    }
 
-        /// <summary>
-        /// Returns the loaded configuration.
-        /// </summary>
-        public static AppSettings Load()
+    private static AppSettings LoadConfiguration()
+    {
+        string configFile = Path.Combine(
+            AppContext.BaseDirectory,
+            "appsettings.json");
+
+        if (!File.Exists(configFile))
         {
-            return _settings.Value;
+            throw new FileNotFoundException(
+                $"Configuration file not found: {configFile}");
         }
 
-        /// <summary>
-        /// Loads appsettings.json from the application directory.
-        /// </summary>
-        private static AppSettings LoadConfiguration()
+        var json = File.ReadAllText(configFile);
+
+        var options = new JsonSerializerOptions
         {
-            string configFile = Path.Combine(
-                AppContext.BaseDirectory,
-                "appsettings.json");
+            PropertyNameCaseInsensitive = true
+        };
 
-            if (!File.Exists(configFile))
-            {
-                throw new FileNotFoundException(
-                    $"Configuration file not found.\nLocation: {configFile}");
-            }
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            json,
+            options);
 
-            string json = File.ReadAllText(configFile);
-
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
-            var settings = JsonSerializer.Deserialize<AppSettings>(
-                json,
-                options);
-
-            if (settings == null)
-            {
-                throw new InvalidOperationException(
-                    "Unable to deserialize appsettings.json.");
-            }
-
-            Validate(settings);
-
-            return settings;
+        if (settings == null)
+        {
+            throw new InvalidOperationException(
+                "Unable to deserialize appsettings.json.");
         }
 
-        /// <summary>
-        /// Validates mandatory configuration values.
-        /// </summary>
-        private static void Validate(AppSettings settings)
-        {
-            if (string.IsNullOrWhiteSpace(settings.BrowserSettings.BrowserName))
-            {
-                throw new InvalidOperationException(
-                    "BrowserSettings:BrowserName is missing.");
-            }
+        Validate(settings);
 
-            if (settings.BrowserSettings.SlowMo < 0)
-            {
-                throw new InvalidOperationException(
-                    "BrowserSettings:SlowMo cannot be negative.");
-            }
+        return settings;
+    }
 
-            if (settings.BrowserSettings.Timeout <= 0)
-            {
-                throw new InvalidOperationException(
-                    "BrowserSettings:Timeout must be greater than zero.");
-            }
+    private static void Validate(AppSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.BrowserSettings.BrowserName))
+            throw new InvalidOperationException(
+                "BrowserSettings.BrowserName is required.");
 
-            if (string.IsNullOrWhiteSpace(settings.TestSettings.BaseUrl))
-            {
-                throw new InvalidOperationException(
-                    "TestSettings:BaseUrl is missing.");
-            }
+        if (settings.BrowserSettings.SlowMo < 0)
+            throw new InvalidOperationException(
+                "BrowserSettings.SlowMo cannot be negative.");
 
-            if (string.IsNullOrWhiteSpace(settings.EnvironmentSettings.EnvironmentName))
-            {
-                throw new InvalidOperationException(
-                    "EnvironmentSettings:EnvironmentName is missing.");
-            }
+        if (string.IsNullOrWhiteSpace(settings.Urls.PlaywrightDevUrl))
+            throw new InvalidOperationException(
+                "Urls.PlaywrightDevUrl is required.");
 
-            if (string.IsNullOrWhiteSpace(settings.ReportSettings.ReportName))
-            {
-                throw new InvalidOperationException(
-                    "ReportSettings:ReportName is missing.");
-            }
-        }
+        if (string.IsNullOrWhiteSpace(settings.Urls.TodoMvcUrl))
+            throw new InvalidOperationException(
+                "Urls.TodoMvcUrl is required.");
     }
 }
