@@ -9,25 +9,25 @@ variables:
 
 steps:
 
-# Install .NET 8
+# Install .NET 8 SDK
 - task: UseDotNet@2
   displayName: 'Install .NET 8 SDK'
   inputs:
-    packageType: sdk
+    packageType: 'sdk'
     version: '8.0.x'
 
-# Restore packages
+# Restore NuGet packages
 - task: DotNetCoreCLI@2
   displayName: 'Restore'
   inputs:
-    command: restore
+    command: 'restore'
     projects: '**/*.sln'
 
-# Build
+# Build Solution
 - task: DotNetCoreCLI@2
   displayName: 'Build'
   inputs:
-    command: build
+    command: 'build'
     projects: '**/*.sln'
     arguments: '--configuration $(BuildConfiguration)'
 
@@ -37,46 +37,29 @@ steps:
     playwright install
   displayName: 'Install Playwright Browsers'
 
-# Run NUnit Tests
+# Execute NUnit Tests
 - task: DotNetCoreCLI@2
   displayName: 'Run Tests'
   inputs:
-    command: test
+    command: 'test'
     projects: '**/*.sln'
     arguments: '--configuration $(BuildConfiguration) --logger trx'
 
-# Publish NUnit Results
+# Publish Test Results
 - task: PublishTestResults@2
   displayName: 'Publish Test Results'
   condition: always()
   inputs:
-    testResultsFormat: VSTest
+    testResultsFormat: 'VSTest'
     testResultsFiles: '**/*.trx'
     mergeTestResults: true
+    failTaskOnFailedTests: false
 
-# Publish Extent Report / Screenshots / Videos
+# Publish Automation Reports (Extent Report, Screenshots, Videos)
 - task: PublishBuildArtifacts@1
-  displayName: Publish Automation Reports
+  displayName: 'Publish Automation Reports'
+  condition: always()
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: TestResults
-    # Copy reports to Artifact Staging Directory
-- powershell: |
-    Write-Host "Copying reports..."
-
-    $artifact = "$(Build.ArtifactStagingDirectory)"
-
-    New-Item -ItemType Directory -Force -Path $artifact
-
-    Copy-Item "$(Build.SourcesDirectory)\MiniProject.Playwright.Tests\bin\Debug\net8.0\TestResults\*" `
-        -Destination $artifact `
-        -Recurse `
-        -Force
-  displayName: Copy Reports
-
-# Publish Extent Report
-- task: PublishBuildArtifacts@1
-  displayName: Publish Automation Reports
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: TestResults
+    ArtifactName: 'TestResults'
+    publishLocation: 'Container'
