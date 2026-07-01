@@ -1,0 +1,24 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# Test results, screenshots, videos, traces produced by BaseTest
+TestResults/
+
+# Playwright browsers (installed via `playwright install`, not checked in)
+ms-playwright/
+
+# Visual Studio
+.vs/
+*.userosscache
+*.sln.docstates
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
