@@ -1,5 +1,5 @@
 trigger:
-- main
+- master
 
 pool:
   vmImage: 'windows-latest'
@@ -9,39 +9,55 @@ variables:
 
 steps:
 
+# Install .NET 8
 - task: UseDotNet@2
   displayName: 'Install .NET 8 SDK'
   inputs:
-    packageType: 'sdk'
+    packageType: sdk
     version: '8.0.x'
 
-- script: |
-    dotnet restore
-  displayName: 'Restore NuGet Packages'
+# Restore packages
+- task: DotNetCoreCLI@2
+  displayName: 'Restore'
+  inputs:
+    command: restore
+    projects: '**/*.sln'
 
-- script: |
-    dotnet build --configuration $(BuildConfiguration)
-  displayName: 'Build Solution'
+# Build
+- task: DotNetCoreCLI@2
+  displayName: 'Build'
+  inputs:
+    command: build
+    projects: '**/*.sln'
+    arguments: '--configuration $(BuildConfiguration)'
 
+# Install Playwright Browsers
 - script: |
-    pwsh bin/Release/net8.0/playwright.ps1 install
+    dotnet tool install --global Microsoft.Playwright.CLI
+    playwright install
   displayName: 'Install Playwright Browsers'
 
-- script: |
-    dotnet test --configuration $(BuildConfiguration)
-  displayName: 'Run Playwright Tests'
+# Run NUnit Tests
+- task: DotNetCoreCLI@2
+  displayName: 'Run Tests'
+  inputs:
+    command: test
+    projects: '**/*.sln'
+    arguments: '--configuration $(BuildConfiguration) --logger trx'
 
+# Publish NUnit Results
 - task: PublishTestResults@2
   displayName: 'Publish Test Results'
   condition: always()
   inputs:
-    testResultsFormat: 'VSTest'
+    testResultsFormat: VSTest
     testResultsFiles: '**/*.trx'
     mergeTestResults: true
 
+# Publish Extent Report / Screenshots / Videos
 - task: PublishBuildArtifacts@1
-  displayName: 'Publish Automation Reports'
+  displayName: 'Publish Automation Report'
   condition: always()
   inputs:
-    PathtoPublish: 'TestResults'
-    ArtifactName: 'AutomationReports'
+    PathtoPublish: '$(Build.SourcesDirectory)/MiniProject.Playwright.Tests/TestResults'
+    ArtifactName: 'AutomationReport'
