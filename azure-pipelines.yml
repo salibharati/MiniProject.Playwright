@@ -1,0 +1,47 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  BuildConfiguration: 'Release'
+
+steps:
+
+- task: UseDotNet@2
+  displayName: 'Install .NET 8 SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '8.0.x'
+
+- script: |
+    dotnet restore
+  displayName: 'Restore NuGet Packages'
+
+- script: |
+    dotnet build --configuration $(BuildConfiguration)
+  displayName: 'Build Solution'
+
+- script: |
+    pwsh bin/Release/net8.0/playwright.ps1 install
+  displayName: 'Install Playwright Browsers'
+
+- script: |
+    dotnet test --configuration $(BuildConfiguration)
+  displayName: 'Run Playwright Tests'
+
+- task: PublishTestResults@2
+  displayName: 'Publish Test Results'
+  condition: always()
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '**/*.trx'
+    mergeTestResults: true
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Automation Reports'
+  condition: always()
+  inputs:
+    PathtoPublish: 'TestResults'
+    ArtifactName: 'AutomationReports'
