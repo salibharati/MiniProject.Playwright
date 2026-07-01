@@ -13,9 +13,15 @@ public static class ScreenshotHelper
 
     public static async Task CaptureAsync(IPage page, string testName)
     {
-        var directory = Path.Combine("TestResults", "Screenshots");
-        Directory.CreateDirectory(directory);
+        var root = Environment.GetEnvironmentVariable("BUILD_ARTIFACTSTAGINGDIRECTORY");
 
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            root = Path.Combine(AppContext.BaseDirectory, "TestResults");
+        }
+
+        var directory = Path.Combine(root, "Screenshots");
+        Directory.CreateDirectory(directory);
         var fileName = $"{Sanitize(testName)}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
         var filePath = Path.Combine(directory, fileName);
 

@@ -13,11 +13,14 @@ public static class ExtentReportManager
 
     private static ExtentReports CreateReport()
     {
-        var reportDir = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "TestResults",
-            "Reports");
+        var reportDir = Environment.GetEnvironmentVariable("BUILD_ARTIFACTSTAGINGDIRECTORY");
 
+        if (string.IsNullOrWhiteSpace(reportDir))
+        {
+            reportDir = Path.Combine(AppContext.BaseDirectory, "TestResults");
+        }
+
+        reportDir = Path.Combine(reportDir, "Reports");
         Directory.CreateDirectory(reportDir);
 
         var reportFile = Path.Combine(reportDir, "ExtentReport.html");
