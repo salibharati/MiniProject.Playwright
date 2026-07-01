@@ -56,8 +56,27 @@ steps:
 
 # Publish Extent Report / Screenshots / Videos
 - task: PublishBuildArtifacts@1
-  displayName: 'Publish Automation Report'
-  condition: always()
+  displayName: Publish Automation Reports
   inputs:
-    PathtoPublish: '$(Build.SourcesDirectory)/MiniProject.Playwright.Tests/TestResults'
-    ArtifactName: 'AutomationReport'
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: TestResults
+    # Copy reports to Artifact Staging Directory
+- powershell: |
+    Write-Host "Copying reports..."
+
+    $artifact = "$(Build.ArtifactStagingDirectory)"
+
+    New-Item -ItemType Directory -Force -Path $artifact
+
+    Copy-Item "$(Build.SourcesDirectory)\MiniProject.Playwright.Tests\bin\Debug\net8.0\TestResults\*" `
+        -Destination $artifact `
+        -Recurse `
+        -Force
+  displayName: Copy Reports
+
+# Publish Extent Report
+- task: PublishBuildArtifacts@1
+  displayName: Publish Automation Reports
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: TestResults
