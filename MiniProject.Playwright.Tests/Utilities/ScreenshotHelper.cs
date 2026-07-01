@@ -1,38 +1,56 @@
 using Microsoft.Playwright;
 using NUnit.Framework;
 
-namespace MiniProject.Playwright.Tests.Utilities;
-
-/// <summary>
-/// Captures and attaches a full-page screenshot when a test fails,
-/// equivalent to the `screenshot: 'only-on-failure'` setting in playwright.config.js.
-/// </summary>
-public static class ScreenshotHelper
+namespace MiniProject.Playwright.Tests.Utilities
 {
-    private static readonly char[] InvalidChars = Path.GetInvalidFileNameChars();
-
-    public static async Task CaptureAsync(IPage page, string testName)
+    /// <summary>
+    /// Captures a full-page screenshot when a test fails.
+    /// Works for both Local execution and Azure DevOps.
+    /// </summary>
+    public static class ScreenshotHelper
     {
-        var directory = Path.Combine("TestResults", "Screenshots");
-        Directory.CreateDirectory(directory);
+        private static readonly char[] InvalidChars = Path.GetInvalidFileNameChars();
 
-        var fileName = $"{Sanitize(testName)}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-        var filePath = Path.Combine(directory, fileName);
-
-        await page.ScreenshotAsync(new PageScreenshotOptions
+        public static async Task<string> CaptureAsync(IPage page, string testName)
         {
-            Path = filePath,
-            FullPage = true
-        });
+            // Azure DevOps Artifact Folder
+            string? rootFolder = Environment.GetEnvironmentVariable("BUILD_ARTIFACTSTAGINGDIRECTORY");
 
-        // Surfaces the screenshot in the NUnit/TRX test result output.
-        TestContext.AddTestAttachment(filePath, $"Screenshot on failure: {testName}");
-    }
+            // Local execution
+            if (string.IsNullOrWhiteSpace(rootFolder))
+            {
+                rootFolder = Path.Combine(AppContext.BaseDirectory, "TestResults");
+            }
 
-    private static string Sanitize(string name)
-    {
-        foreach (var c in InvalidChars)
-            name = name.Replace(c, '_');
-        return name;
+            // Screenshots folder
+            string screenshotFolder = Path.Combine(rootFolder, "Screenshots");
+
+            Directory.CreateDirectory(screenshotFolder);
+
+            string fileName = $"{Sanitize(testName)}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+
+            string filePath = Path.Combine(screenshotFolder, fileName);
+
+            await page.ScreenshotAsync(new PageScreenshotOptions
+            {
+                Path = filePath,
+                FullPage = true
+            });
+
+            // Attach screenshot to NUnit Test Results
+            TestContext.AddTestAttachment(filePath, $"Failure Screenshot - {testName}");
+
+            return filePath;
+        }
+
+        private static string Sanitize(string name)
+        {
+            foreach (char c in InvalidChars)
+            {
+                name = name.Replace(c, '_');
+            }
+
+            return name;
+        }
     }
 }

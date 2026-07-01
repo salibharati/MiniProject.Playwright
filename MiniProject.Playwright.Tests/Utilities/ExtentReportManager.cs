@@ -1,50 +1,64 @@
 ﻿using AventStack.ExtentReports;
-using AventStack.ExtentReports;
 using AventStack.ExtentReports.Reporter;
 using AventStack.ExtentReports.Reporter.Config;
 
-namespace MiniProject.Playwright.Tests.Utilities;
-
-public static class ExtentReportManager
+namespace MiniProject.Playwright.Tests.Utilities
 {
-    private static readonly Lazy<ExtentReports> _extent = new(CreateReport);
-
-    public static ExtentReports Instance => _extent.Value;
-
-    private static ExtentReports CreateReport()
+    public static class ExtentReportManager
     {
-        var reportDir = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "TestResults",
-            "Reports");
+        private static readonly Lazy<ExtentReports> _extent = new(CreateReport);
 
-        Directory.CreateDirectory(reportDir);
+        public static ExtentReports Instance => _extent.Value;
 
-        var reportFile = Path.Combine(reportDir, "ExtentReport.html");
+        private static ExtentReports CreateReport()
+        {
+            // Azure DevOps Artifact folder
+            string? reportRoot = Environment.GetEnvironmentVariable("BUILD_ARTIFACTSTAGINGDIRECTORY");
 
-        var spark = new ExtentSparkReporter(reportFile);
+            // Local execution (Visual Studio)
+            if (string.IsNullOrWhiteSpace(reportRoot))
+            {
+                reportRoot = Path.Combine(AppContext.BaseDirectory, "TestResults");
+            }
 
-        spark.Config.Theme = Theme.Dark;
-        spark.Config.DocumentTitle = "Playwright Report";
-        spark.Config.ReportName = "Automation Execution Report";
+            // Final Report Folder
+            string reportDirectory = Path.Combine(reportRoot, "Reports");
 
-        var extent = new ExtentReports();
+            Directory.CreateDirectory(reportDirectory);
 
-        extent.AttachReporter(spark);
+            string reportFile = Path.Combine(reportDirectory, "ExtentReport.html");
 
-        extent.AddSystemInfo("Framework", ".NET 8");
-        extent.AddSystemInfo("Automation", "Playwright");
+            var sparkReporter = new ExtentSparkReporter(reportFile);
 
-        return extent;
-    }
+            sparkReporter.Config.Theme = Theme.Dark;
+            sparkReporter.Config.DocumentTitle = "Playwright .NET Automation Report";
+            sparkReporter.Config.ReportName = "MiniProject - Playwright Execution Report";
+            sparkReporter.Config.Encoding = "utf-8";
 
-    public static ExtentTest CreateTest(string testName)
-    {
-        return Instance.CreateTest(testName);
-    }
+            var extent = new ExtentReports();
 
-    public static void Flush()
-    {
-        Instance.Flush();
+            extent.AttachReporter(sparkReporter);
+
+            // System Information
+            extent.AddSystemInfo("Framework", ".NET 8");
+            extent.AddSystemInfo("Automation Tool", "Playwright");
+            extent.AddSystemInfo("Report Type", "Extent Report");
+            extent.AddSystemInfo("Environment", "QA");
+            extent.AddSystemInfo("Operating System", Environment.OSVersion.ToString());
+            extent.AddSystemInfo(".NET Version", Environment.Version.ToString());
+            extent.AddSystemInfo("Machine Name", Environment.MachineName);
+
+            return extent;
+        }
+
+        public static ExtentTest CreateTest(string testName)
+        {
+            return Instance.CreateTest(testName);
+        }
+
+        public static void Flush()
+        {
+            Instance.Flush();
+        }
     }
 }
