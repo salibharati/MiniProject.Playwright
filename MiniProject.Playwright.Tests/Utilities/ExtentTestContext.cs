@@ -1,49 +1,36 @@
 ﻿using AventStack.ExtentReports;
-using System.Threading;
+using System.Collections.Concurrent;
+using NUnit.Framework;
 
-namespace MiniProject.Playwright.Tests.Utilities
+namespace MiniProject.Playwright.Tests.Utilities;
+
+public static class ExtentTestContext
 {
-    /// <summary>
-    /// Maintains the current ExtentTest instance for each executing test.
-    ///
-    /// AsyncLocal ensures every test running in parallel has its own
-    /// independent ExtentTest instance while remaining safe across
-    /// async/await calls.
-    /// </summary>
-    public static class ExtentTestContext
+    private static readonly ConcurrentDictionary<string, ExtentTest> _tests = new();
+
+    private static string CurrentId => TestContext.CurrentContext.Test.ID;
+
+    public static ExtentTest Current
     {
-        private static readonly AsyncLocal<ExtentTest?> _current = new();
-
-        /// <summary>
-        /// Gets or sets the ExtentTest associated with the current test execution.
-        /// </summary>
-        public static ExtentTest Current
+        get
         {
-            get
-            {
-                if (_current.Value == null)
-                {
-                    throw new InvalidOperationException(
-                        "ExtentTest has not been initialized for the current test. " +
-                        "Ensure ExtentTestContext.Current is assigned during SetUp.");
-                }
+            if (_tests.TryGetValue(CurrentId, out var test))
+                return test;
 
-                return _current.Value;
-            }
-
-            set
-            {
-                _current.Value = value;
-            }
+            throw new InvalidOperationException(
+                $"ExtentTest not initialized for test ID: {CurrentId}");
         }
-
-        /// <summary>
-        /// Clears the current test reference.
-        /// Call this during TearDown to prevent memory leaks.
-        /// </summary>
-        public static void Clear()
+        set
         {
-            _current.Value = null;
+            _tests[CurrentId] = value;
         }
+    }
+
+    public static bool HasCurrent =>
+        _tests.ContainsKey(CurrentId);
+
+    public static void Clear()
+    {
+        _tests.TryRemove(CurrentId, out _);
     }
 }

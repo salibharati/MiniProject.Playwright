@@ -3,7 +3,7 @@ using Microsoft.Playwright;
 namespace MiniProject.Playwright.Tests.Pages;
 
 /// <summary>
-/// Page object for the TodoMVC React demo app — converted from todo.spec.js.
+/// Page object for the TodoMVC application.
 /// </summary>
 public class TodoPage : BasePage
 {
@@ -14,22 +14,36 @@ public class TodoPage : BasePage
         _url = url;
     }
 
-    public ILocator TextInput => Page.GetByTestId("text-input");
+    // Todo input textbox
+    public ILocator TextInput =>
+        Page.Locator(".new-todo");
 
-    public ILocator TodoListItems => Page.Locator(".todo-list li");
+    // Todo list items
+    public ILocator TodoListItems =>
+        Page.Locator(".todo-list li");
 
+    // Active filter
     public ILocator ActiveFilterLink =>
         Page.GetByRole(AriaRole.Link, new() { Name = "Active" });
 
-    public Task NavigateAsync() => Page.GotoAsync(_url);
+    // Navigate
+    public async Task NavigateAsync()
+    {
+        await Page.GotoAsync(_url);
+        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+    }
 
+    // Add one todo
     public async Task AddTodoAsync(string text)
     {
-        await TextInput.ClickAsync();
+        await TextInput.WaitForAsync();
+
         await TextInput.FillAsync(text);
+
         await TextInput.PressAsync("Enter");
     }
 
+    // Add multiple todos
     public async Task AddTodosAsync(IEnumerable<string> items)
     {
         foreach (var item in items)
@@ -38,13 +52,27 @@ public class TodoPage : BasePage
         }
     }
 
-    public Task ToggleTodoAsync(string text) =>
-        Page.GetByRole(AriaRole.Listitem)
-            .Filter(new() { HasText = text })
-            .GetByTestId("todo-item-toggle")
+    // Complete a todo
+    public async Task ToggleTodoAsync(string text)
+    {
+        await Page
+            .Locator("li", new()
+            {
+                Has = Page.GetByText(text)
+            })
+            .Locator(".toggle")
             .CheckAsync();
+    }
 
-    public Task FilterActiveAsync() => ActiveFilterLink.ClickAsync();
+    // Click Active filter
+    public async Task FilterActiveAsync()
+    {
+        await ActiveFilterLink.ClickAsync();
+    }
 
-    public ILocator GetTodoTextLocator(string text) => Page.GetByText(text);
+    // Returns a todo locator
+    public ILocator GetTodoTextLocator(string text)
+    {
+        return Page.GetByText(text);
+    }
 }

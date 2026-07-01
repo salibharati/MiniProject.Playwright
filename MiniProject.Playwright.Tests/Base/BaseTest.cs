@@ -165,6 +165,12 @@ namespace MiniProject.Playwright.Tests.Base
             var testName = TestContext.CurrentContext.Test.Name;
             var testFailed = outcome == TestStatus.Failed;
 
+            //var extentTest = ExtentTestContext.Current;
+            if (!ExtentTestContext.HasCurrent)
+            {
+                return;
+            }
+
             var extentTest = ExtentTestContext.Current;
 
             string? screenshotPath = null;
