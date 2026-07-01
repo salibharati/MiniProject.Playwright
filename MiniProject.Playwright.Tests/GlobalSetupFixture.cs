@@ -1,26 +1,22 @@
 ﻿using MiniProject.Playwright.Tests.Utilities;
 using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace MiniProject.Playwright.Tests
+[OneTimeSetUp]
+public void BeforeAllTests()
 {
-    [SetUpFixture]
-    public class GlobalSetupFixture
-    {
-        [OneTimeSetUp]
-        public void Setup()
-        {
-            _ = ExtentReportManager.Instance;
-        }
+    TestPaths.CreateDirectories();
 
-        [OneTimeTearDown]
-        public void TearDown()
-        {
-            ExtentReportManager.Flush();
-        }
-    }
+    Logger.Info("========== TEST EXECUTION STARTED ==========");
+
+    _ = ExtentReportManager.Instance;
+}
+
+[OneTimeTearDown]
+public void AfterAllTests()
+{
+    ExtentReportManager.Flush();
+
+    Logger.Info("========== TEST EXECUTION COMPLETED ==========");
+
+    Logger.Close();
 }

@@ -6,376 +6,418 @@ using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using PlaywrightFactory = Microsoft.Playwright.Playwright;
 
-namespace MiniProject.Playwright.Tests.Base;
-
-/// <summary>
-/// Base class for all UI test fixtures.
-///
-/// ═══════════════════════════════════════════════════════════════════════════════
-/// ROOT CAUSE FIX
-/// ═══════════════════════════════════════════════════════════════════════════════
-///
-/// Previously, _playwright and _browser were declared as static fields,
-/// meaning every test fixture (ExampleTests, TodoTests, etc.) shared the
-/// same Playwright process.
-///
-/// NUnit executes [OneTimeSetUp] once per fixture class. When the second
-/// fixture started, it replaced the shared static Playwright instance,
-/// causing the first fixture's connection to be disposed.
-///
-/// This resulted in:
-///
-/// Microsoft.Playwright.TargetClosedException : Connection disposed
-///
-/// FIX:
-/// - _playwright and _browser are now INSTANCE fields.
-/// - Every fixture class owns its own browser.
-/// - [OneTimeSetUp]/[OneTimeTearDown] manage that fixture's lifecycle.
-/// - No cross-fixture interference.
-///
-/// Settings are loaded only once using Lazy<AppSettings>, making them
-/// thread-safe while remaining shared across fixtures.
-///
-/// ExtentReports lifecycle:
-///     SetUp     -> Create test node
-///     TearDown  -> Log Pass/Fail/Skip
-///     Assembly  -> Flush report
-/// </summary>
-
-[Parallelizable(ParallelScope.Self)]
-public abstract class BaseTest
+namespace MiniProject.Playwright.Tests.Base
 {
-    #region Playwright Fields
-
-    // One browser per fixture
-    private IPlaywright _playwright = null!;
-    private IBrowser _browser = null!;
-
-    protected IBrowserContext Context { get; private set; } = null!;
-    protected IPage Page { get; private set; } = null!;
-
-    private string? _videoDirectory;
-
-    #endregion
-
-    #region Configuration
-
-    private static readonly Lazy<AppSettings> _lazySettings =
-        new(
-            ConfigReader.Load,
-            LazyThreadSafetyMode.ExecutionAndPublication);
-
-    protected static AppSettings Settings => _lazySettings.Value;
-
-    #endregion
-
-    #region One Time Setup
-
-    [OneTimeSetUp]
-    public async Task GlobalSetUpAsync()
+    /// <summary>
+    /// Base class for all Playwright UI tests.
+    /// Creates one browser per fixture and one browser context per test.
+    /// Integrates Playwright, NUnit and Extent Reports.
+    /// </summary>
+    [Parallelizable(ParallelScope.Self)]
+    public abstract class BaseTest
     {
-        _playwright = await PlaywrightFactory.CreateAsync();
-        _browser = await LaunchBrowserAsync();
-    }
+        #region Playwright Fields
 
-    private async Task<IBrowser> LaunchBrowserAsync()
-    {
-        var launchOptions = new BrowserTypeLaunchOptions
+        private IPlaywright _playwright = null!;
+        private IBrowser _browser = null!;
+
+        protected IBrowserContext Context { get; private set; } = null!;
+        protected IPage Page { get; private set; } = null!;
+
+        private string? _videoDirectory;
+
+        #endregion
+
+        #region Configuration
+
+        private static readonly Lazy<AppSettings> _settings =
+            new(
+                ConfigReader.Load,
+                LazyThreadSafetyMode.ExecutionAndPublication);
+
+        protected static AppSettings Settings => _settings.Value;
+
+        #endregion
+
+        #region One Time Setup
+
+        [OneTimeSetUp]
+        public async Task GlobalSetUpAsync()
         {
-            Headless = Settings.BrowserSettings.Headless,
-            SlowMo = Settings.BrowserSettings.SlowMo
-        };
+            _playwright = await PlaywrightFactory.CreateAsync();
 
-        return Settings.BrowserSettings.BrowserName
-            .Trim()
-            .ToLowerInvariant() switch
-        {
-            "firefox" => await _playwright.Firefox.LaunchAsync(launchOptions),
-
-            "webkit" => await _playwright.Webkit.LaunchAsync(launchOptions),
-
-            _ => await _playwright.Chromium.LaunchAsync(launchOptions)
-        };
-    }
-
-    #endregion
-
-    #region Test Setup
-
-    [SetUp]
-    public async Task SetUpAsync()
-    {
-        var testName = TestContext.CurrentContext.Test.Name;
-        var className = TestContext.CurrentContext.Test.ClassName ?? string.Empty;
-
-        var extentTest =
-    ExtentReportManager.CreateTest(testName);
-
-        ExtentTestContext.Current = extentTest;
-        foreach (var category in
-                 TestContext.CurrentContext.Test.Properties["Category"].Cast<string>())
-        {
-            extentTest.AssignCategory(category);
+            _browser = await LaunchBrowserAsync();
+            Logger.Info("Launching Playwright.");
+            Logger.Info($"Browser launched : {Settings.BrowserSettings.BrowserName}");
         }
 
-        extentTest.AssignDevice(Settings.BrowserSettings.BrowserName);
-
-        extentTest.Log(
-            Status.Info,
-            $"<b>Test Started:</b> {testName}");
-
-        ExtentTestContext.Current = extentTest;
-
-        var contextOptions = new BrowserNewContextOptions();
-
-        if (Settings.TestSettings.VideoOnFailure)
+        private async Task<IBrowser> LaunchBrowserAsync()
         {
-            _videoDirectory = Path.Combine(
-                "TestResults",
-                "Videos",
-                $"{Sanitize(testName)}_{Guid.NewGuid():N}");
+            var launchOptions = new BrowserTypeLaunchOptions
+            {
+                Headless = Settings.BrowserSettings.Headless,
+                SlowMo = Settings.BrowserSettings.SlowMo
+            };
 
-            Directory.CreateDirectory(_videoDirectory);
+            return Settings.BrowserSettings.BrowserName
+                .Trim()
+                .ToLowerInvariant() switch
+            {
+                "firefox" => await _playwright.Firefox.LaunchAsync(launchOptions),
 
-            contextOptions.RecordVideoDir = _videoDirectory;
+                "webkit" => await _playwright.Webkit.LaunchAsync(launchOptions),
+
+                _ => await _playwright.Chromium.LaunchAsync(launchOptions)
+            };
         }
 
-        Context = await _browser.NewContextAsync(contextOptions);
+        #endregion
 
-        if (Settings.TestSettings.TraceOnFirstRetry)
+        #region Test Setup
+
+        [SetUp]
+        public async Task SetUpAsync()
         {
-            await Context.Tracing.StartAsync(
-                new TracingStartOptions
+            string testName = TestContext.CurrentContext.Test.Name;
+
+            string className =
+                TestContext.CurrentContext.Test.ClassName ?? string.Empty;
+
+            var extentTest = ExtentReportManager.CreateTest(testName);
+
+            ExtentTestContext.Current = extentTest;
+
+            // Categories
+
+            foreach (string category in
+                     TestContext.CurrentContext.Test.Properties["Category"].Cast<string>())
+            {
+                extentTest.AssignCategory(category);
+            }
+
+            // Browser
+
+            extentTest.AssignDevice(Settings.BrowserSettings.BrowserName);
+
+            // Author (Optional)
+
+            extentTest.AssignAuthor(Environment.UserName);
+
+            // Initial Logs
+
+            extentTest.Info($"Test Started : {testName}");
+
+            extentTest.Info($"Class : {className}");
+
+            extentTest.Info($"Browser : {Settings.BrowserSettings.BrowserName}");
+
+            extentTest.Info($"Headless : {Settings.BrowserSettings.Headless}");
+
+            // Browser Context
+
+            var contextOptions = new BrowserNewContextOptions();
+
+            if (Settings.TestSettings.VideoOnFailure)
+            {
+                _videoDirectory = Path.Combine(
+                    TestPaths.Videos,
+                    $"{Sanitize(testName)}_{Guid.NewGuid():N}");
+
+                Directory.CreateDirectory(_videoDirectory);
+
+                contextOptions.RecordVideoDir = _videoDirectory;
+            }
+
+            Context = await _browser.NewContextAsync(contextOptions);
+
+            extentTest.Info("Browser Context Created");
+            Logger.Info($"Starting Test : {testName}");
+            Logger.Info("Creating Browser Context.");
+
+            // Start Trace
+
+            if (Settings.TestSettings.TraceOnFirstRetry)
+            {
+                await Context.Tracing.StartAsync(
+                    new TracingStartOptions
+                    {
+                        Screenshots = true,
+                        Snapshots = true,
+                        Sources = true
+                    });
+
+                extentTest.Info("Tracing Started");
+            }
+
+            Page = await Context.NewPageAsync();
+
+            extentTest.Info("Browser Page Created");
+            Logger.Info("Browser Page Created.");
+        }
+
+        #endregion
+        #region Test TearDown
+
+        [TearDown]
+        public async Task TearDownAsync()
+        {
+            var outcome = TestContext.CurrentContext.Result.Outcome.Status;
+            var testName = TestContext.CurrentContext.Test.Name;
+            var testFailed = outcome == TestStatus.Failed;
+
+            var extentTest = ExtentTestContext.Current;
+
+            string? screenshotPath = null;
+
+            // ==========================================================
+            // Capture Screenshot (Only on Failure)
+            // ==========================================================
+
+            if (testFailed && Settings.TestSettings.ScreenshotOnFailure)
+            {
+                try
                 {
-                    Screenshots = true,
-                    Snapshots = true,
-                    Sources = true
-                });
-        }
+                    screenshotPath = await ScreenshotHelper.CaptureAsync(
+                        Page,
+                        testName);
 
-        Page = await Context.NewPageAsync();
-    }
-
-    #endregion
-
-    #region Test TearDown
-
-    [TearDown]
-    public async Task TearDownAsync()
-    {
-        var outcome = TestContext.CurrentContext.Result.Outcome.Status;
-        var testName = TestContext.CurrentContext.Test.Name;
-        var testFailed = outcome == TestStatus.Failed;
-
-        var extentTest = ExtentTestContext.Current;
-
-        string? screenshotPath = null;
-
-        if (testFailed && Settings.TestSettings.ScreenshotOnFailure)
-        {
-            try
-            {
-                await ScreenshotHelper.CaptureAsync(Page, testName);
-                // ScreenshotHelper.CaptureAsync returns Task, not Task<string>.
-                // If you need the path, update ScreenshotHelper.CaptureAsync to return it.
-                // For now, set screenshotPath to null or to a known path if possible.
+                    extentTest.Info("Screenshot captured.");
+                    Logger.Error($"Test Failed : {testName}");
+                    Logger.Error(errorMessage);
+                    if (!string.IsNullOrWhiteSpace(screenshotPath))
+                    {
+                        extentTest.AddScreenCaptureFromPath(
+                            screenshotPath,
+                            "Failure Screenshot");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    extentTest.Warning(
+                        $"Unable to capture screenshot.<br>{ex.Message}");
+                }
             }
-            catch (Exception ex)
-            {
-                extentTest.Log(
-                    Status.Warning,
-                    $"Screenshot failed: {ex.Message}");
-            }
-        }
 
-        var video =
-            Settings.TestSettings.VideoOnFailure
+            // ==========================================================
+            // Save Video Reference
+            // ==========================================================
+
+            var video = Settings.TestSettings.VideoOnFailure
                 ? Page?.Video
                 : null;
 
-        if (Settings.TestSettings.TraceOnFirstRetry)
-        {
-            try
+            // ==========================================================
+            // Stop Playwright Trace
+            // ==========================================================
+
+            if (Settings.TestSettings.TraceOnFirstRetry)
             {
-                string? tracePath = null;
-
-                if (testFailed)
+                try
                 {
-                    var traceDir = Path.Combine(
-                        "TestResults",
-                        "Traces");
+                    string? tracePath = null;
 
-                    Directory.CreateDirectory(traceDir);
-
-                    tracePath = Path.Combine(
-                        traceDir,
-                        $"{Sanitize(testName)}.zip");
-                }
-
-                await Context.Tracing.StopAsync(
-                    new TracingStopOptions
+                    if (testFailed)
                     {
-                        Path = tracePath
-                    });
+                        Directory.CreateDirectory(TestPaths.Traces);
 
-                if (tracePath != null)
-                {
-                    extentTest.Log(
-                        Status.Info,
-                        $"Trace: <code>{tracePath}</code>");
+                        tracePath = Path.Combine(
+                            TestPaths.Traces,
+                            $"{Sanitize(testName)}.zip");
+                    }
+
+                    await Context.Tracing.StopAsync(
+                        new TracingStopOptions
+                        {
+                            Path = tracePath
+                        });
+
+                    if (!string.IsNullOrWhiteSpace(tracePath))
+                    {
+                        extentTest.Info(
+                            $"Trace saved : {tracePath}");
+                    }
                 }
+                catch (Exception ex)
+                {
+                    extentTest.Warning(
+                        $"Unable to save trace.<br>{ex.Message}");
+                }
+            }
+
+            // ==========================================================
+            // Close Browser Context
+            // ==========================================================
+
+            try
+            {
+                await Context.CloseAsync();
+
+                extentTest.Info("Browser Context Closed.");
             }
             catch (Exception ex)
             {
-                extentTest.Log(
-                    Status.Warning,
-                    $"Trace failed: {ex.Message}");
+                extentTest.Warning(
+                    $"Context close failed.<br>{ex.Message}");
             }
-        }
 
-        try
-        {
-            await Context.CloseAsync();
-        }
-        catch (Exception ex)
-        {
-            extentTest.Log(
-                Status.Warning,
-                $"Context close failed: {ex.Message}");
-        }
+            // ==========================================================
+            // Test Result
+            // ==========================================================
 
-        var errorMessage =
-            TestContext.CurrentContext.Result.Message ?? string.Empty;
+            string errorMessage =
+                TestContext.CurrentContext.Result.Message ?? string.Empty;
 
-        switch (outcome)
-        {
-            case TestStatus.Failed:
+            // ---------- Part 3B starts from here ----------
 
-                extentTest.Log(
-                    Status.Fail,
-                    $"<pre>{System.Net.WebUtility.HtmlEncode(errorMessage)}</pre>");
 
-                if (screenshotPath != null)
+            switch (outcome)
+            {
+                case TestStatus.Failed:
+
+                    extentTest.Fail(
+                        $"<pre>{System.Net.WebUtility.HtmlEncode(errorMessage)}</pre>");
+
+                    if (!string.IsNullOrWhiteSpace(screenshotPath))
+                    {
+                        extentTest.Info(
+                            $"Screenshot Location : {screenshotPath}");
+                    }
+
+                    break;
+
+                case TestStatus.Passed:
+
+                    extentTest.Pass("Test Passed ✔");
+
+                    break;
+
+                case TestStatus.Skipped:
+
+                    extentTest.Skip(
+                        string.IsNullOrWhiteSpace(errorMessage)
+                            ? "Test was skipped."
+                            : errorMessage);
+
+                    break;
+
+                case TestStatus.Inconclusive:
+
+                    extentTest.Warning(
+                        string.IsNullOrWhiteSpace(errorMessage)
+                            ? "Test was inconclusive."
+                            : errorMessage);
+
+                    break;
+
+                default:
+
+                    extentTest.Info("Test execution completed.");
+
+                    break;
+            }
+
+            // ==========================================================
+            // Video Handling
+            // ==========================================================
+
+            if (video != null)
+            {
+                try
                 {
-                    extentTest.AddScreenCaptureFromPath(
-                        screenshotPath,
-                        "Screenshot");
+                    string videoPath = await video.PathAsync();
+
+                    if (testFailed)
+                    {
+                        extentTest.Info(
+                            $"Video Location : {videoPath}");
+                    }
+                    else
+                    {
+                        if (File.Exists(videoPath))
+                        {
+                            File.Delete(videoPath);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(_videoDirectory) &&
+                            Directory.Exists(_videoDirectory) &&
+                            !Directory.EnumerateFileSystemEntries(_videoDirectory).Any())
+                        {
+                            Directory.Delete(_videoDirectory, true);
+                        }
+                    }
                 }
+                catch (Exception ex)
+                {
+                    extentTest.Warning(
+                        $"Video handling failed.<br>{ex.Message}");
+                }
+            }
 
-                break;
+            // ==========================================================
+            // Final Execution Details
+            // ==========================================================
 
-            case TestStatus.Inconclusive:
+            extentTest.Info(
+                $"Execution Completed : {DateTime.Now:dd-MMM-yyyy HH:mm:ss}");
 
-                extentTest.Log(
-                    Status.Warning,
-                    string.IsNullOrWhiteSpace(errorMessage)
-                        ? "Test was inconclusive."
-                        : errorMessage);
+            extentTest.Info(
+                $"Final Status : {outcome}");
 
-                break;
+            // ==========================================================
+            // Cleanup
+            // ==========================================================
 
-            case TestStatus.Skipped:
-
-                extentTest.Log(
-                    Status.Skip,
-                    string.IsNullOrWhiteSpace(errorMessage)
-                        ? "Test was skipped."
-                        : errorMessage);
-
-                break;
-
-            default:
-
-                extentTest.Log(
-                    Status.Pass,
-                    "Test Passed ✔");
-
-                break;
+            ExtentTestContext.Clear();
         }
 
-        if (video != null)
+        #endregion
+        #region One Time TearDown
+
+        /// <summary>
+        /// Executes once after all tests in the fixture have completed.
+        /// Closes the browser and disposes Playwright.
+        /// </summary>
+        [OneTimeTearDown]
+        public async Task GlobalTearDownAsync()
         {
             try
             {
-                if (testFailed)
+                if (_browser != null)
                 {
-                    var videoPath = await video.PathAsync();
-
-                    extentTest.Log(
-                        Status.Info,
-                        $"Video retained: <code>{videoPath}</code>");
-                }
-                else if (!string.IsNullOrEmpty(_videoDirectory) &&
-                         Directory.Exists(_videoDirectory))
-                {
-                    Directory.Delete(_videoDirectory, true);
+                    await _browser.CloseAsync();
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                extentTest.Log(
-                    Status.Warning,
-                    $"Video handling failed: {ex.Message}");
+                // Best effort
+            }
+
+            try
+            {
+                _playwright?.Dispose();
+            }
+            catch (Exception)
+            {
+                // Best effort
             }
         }
+
+        #endregion
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Removes invalid filename characters.
+        /// </summary>
+        private static string Sanitize(string name)
+        {
+            foreach (char c in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(c, '_');
+            }
+
+            return name;
+        }
+
+        #endregion
     }
-
-    #endregion
-
-    #region One Time TearDown
-
-    [OneTimeTearDown]
-    public async Task GlobalTearDownAsync()
-    {
-        try
-        {
-            await _browser.CloseAsync();
-        }
-        catch
-        {
-            // Best effort
-        }
-
-        try
-        {
-            _playwright.Dispose();
-        }
-        catch
-        {
-            // Best effort
-        }
-    }
-
-    #endregion
-
-    #region Helper Methods
-
-    private static string Sanitize(string name)
-    {
-        foreach (var invalidChar in Path.GetInvalidFileNameChars())
-        {
-            name = name.Replace(invalidChar, '_');
-        }
-
-        return name;
-    }
-
-    #endregion
-}
-
-// Add this class to provide the missing ExtentTestContext used in BaseTest.
-// This assumes ExtentTestContext is a simple static context holder for the current ExtentTest.
-// Place this class in the appropriate namespace (MiniProject.Playwright.Tests.Utilities or similar)
-// if it is referenced elsewhere, or adjust the namespace as needed.
-
-public static class ExtentTestContext
-{
-    [ThreadStatic]
-    private static ExtentTest? _current;
-
-    public static ExtentTest? Current
-    {
-        get => _current;
-        set => _current = value;
-    }
-}

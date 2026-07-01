@@ -1,41 +1,100 @@
-namespace MiniProject.Playwright.Tests.Config;
-
-/// <summary>
-/// Root configuration model deserialized from appsettings.json.
-/// Mirrors the settings previously expressed in playwright.config.js.
-/// </summary>
-public class AppSettings
+namespace MiniProject.Playwright.Tests.Config
 {
-    public BrowserSettings BrowserSettings { get; set; } = new();
-    public TestSettings TestSettings { get; set; } = new();
-    public UrlSettings Urls { get; set; } = new();
-}
+    /// <summary>
+    /// Root configuration class mapped from appsettings.json
+    /// </summary>
+    public class AppSettings
+    {
+        public BrowserSettings BrowserSettings { get; set; } = new();
 
-/// <summary>
-/// Maps to the original `use` block in playwright.config.js
-/// (browserName, launchOptions.headless, launchOptions.slowMo).
-/// </summary>
-public class BrowserSettings
-{
-    public string BrowserName { get; set; } = "chromium";
-    public bool Headless { get; set; } = false;
-    public float SlowMo { get; set; } = 0;
-}
+        public TestSettings TestSettings { get; set; } = new();
 
-/// <summary>
-/// Maps to the original screenshot / video / trace / retries settings
-/// from playwright.config.js.
-/// </summary>
-public class TestSettings
-{
-    public bool ScreenshotOnFailure { get; set; } = true;
-    public bool VideoOnFailure { get; set; } = true;
-    public bool TraceOnFirstRetry { get; set; } = true;
-    public int Retries { get; set; } = 0;
-}
+        public EnvironmentSettings EnvironmentSettings { get; set; } = new();
 
-public class UrlSettings
-{
-    public string PlaywrightDevUrl { get; set; } = string.Empty;
-    public string TodoMvcUrl { get; set; } = string.Empty;
+        public ReportSettings ReportSettings { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Browser Configuration
+    /// </summary>
+    public class BrowserSettings
+    {
+        /// <summary>
+        /// chromium / firefox / webkit
+        /// </summary>
+        public string BrowserName { get; set; } = "chromium";
+
+        /// <summary>
+        /// true = Headless
+        /// false = Browser visible
+        /// </summary>
+        public bool Headless { get; set; } = false;
+
+        /// <summary>
+        /// SlowMo in milliseconds
+        /// </summary>
+        public int SlowMo { get; set; } = 0;
+
+        /// <summary>
+        /// Browser timeout in milliseconds
+        /// </summary>
+        public int Timeout { get; set; } = 30000;
+    }
+
+    /// <summary>
+    /// Test execution settings
+    /// </summary>
+    public class TestSettings
+    {
+        /// <summary>
+        /// Base URL of AUT
+        /// </summary>
+        public string BaseUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Capture Screenshot on Failure
+        /// </summary>
+        public bool ScreenshotOnFailure { get; set; } = true;
+
+        /// <summary>
+        /// Record Video
+        /// </summary>
+        public bool VideoOnFailure { get; set; } = true;
+
+        /// <summary>
+        /// Save Playwright Trace
+        /// </summary>
+        public bool TraceOnFirstRetry { get; set; } = true;
+
+        /// <summary>
+        /// Maximum Retry Count
+        /// </summary>
+        public int RetryCount { get; set; } = 0;
+    }
+
+    /// <summary>
+    /// Environment Configuration
+    /// </summary>
+    public class EnvironmentSettings
+    {
+        public string EnvironmentName { get; set; } = "QA";
+
+        public string ApplicationName { get; set; } = "MiniProject";
+
+        public string Version { get; set; } = "1.0";
+    }
+
+    /// <summary>
+    /// Reporting Configuration
+    /// </summary>
+    public class ReportSettings
+    {
+        public string ReportName { get; set; } = "Playwright Automation Report";
+
+        public string ReportTitle { get; set; } = "Execution Report";
+
+        public string Theme { get; set; } = "Dark";
+
+        public bool CaptureSystemInfo { get; set; } = true;
+    }
 }
